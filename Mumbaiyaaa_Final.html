@@ -1,0 +1,1574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Mumbaiyaaa 🛺</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;700;800&family=Tiro+Devanagari+Hindi&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;height:100%;overflow:hidden;background:#0d0010;font-family:'Baloo 2',cursive;user-select:none;touch-action:none}
+canvas{display:block;image-rendering:pixelated}
+#wrap{position:relative;width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden}
+
+/* ── TOAST ── */
+#toast{position:absolute;top:12px;left:50%;transform:translateX(-50%) translateY(-90px);background:rgba(10,4,24,.97);border:2px solid rgba(255,188,0,.6);border-radius:12px;padding:7px 18px;font-family:'Baloo 2',cursive;font-size:14px;font-weight:700;color:#ffc400;z-index:200;pointer-events:none;white-space:nowrap;transition:transform .38s cubic-bezier(.34,1.56,.64,1);letter-spacing:.3px}
+#toast.show{transform:translateX(-50%) translateY(0)}
+
+/* ── XP POPUP ── */
+#xppop{position:absolute;top:80px;left:50%;transform:translateX(-50%) scale(.5);opacity:0;font-family:'Baloo 2',cursive;font-size:22px;font-weight:800;color:#fff;text-shadow:0 0 18px rgba(255,200,0,.9);pointer-events:none;z-index:210;transition:all .5s cubic-bezier(.34,1.56,.64,1)}
+#xppop.show{transform:translateX(-50%) scale(1);opacity:1}
+
+/* ── HORN VISUAL ── */
+#hornvfx{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:52px;opacity:0;pointer-events:none;z-index:220;transition:opacity .05s}
+#hornvfx.show{opacity:1;animation:hornpop .5s forwards}
+@keyframes hornpop{0%{opacity:1;transform:translate(-50%,-50%) scale(.7)}40%{transform:translate(-50%,-50%) scale(1.3)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.6)}}
+
+/* ── RED FLASH ── */
+#redflash{position:absolute;inset:0;pointer-events:none;z-index:190;opacity:0;background:rgba(255,30,30,0);border-radius:4px}
+#redflash.hit{opacity:1;background:rgba(255,30,30,.25);transition:none}
+#redflash.fade{opacity:0;transition:opacity .6s}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="c"></canvas>
+  <div id="toast">🛺 Chal nikal!</div>
+  <div id="xppop">+50 XP 🌟</div>
+  <div id="hornvfx">📯</div>
+  <div id="redflash"></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+//  MUMBAIYAAA — THE DEFINITIVE EDITION
+//  Consolidated from all three versions
+//  "not a race. just our beloved bombay."
+// ═══════════════════════════════════════════════════
+
+const C   = document.getElementById('c');
+const ctx = C.getContext('2d');
+const WRAP = document.getElementById('wrap');
+
+// ── SIZING ───────────────────────────────────────
+let W = Math.min(window.innerWidth, 420);
+let H = Math.min(window.innerHeight, 860);
+C.width  = W;
+C.height = H;
+C.style.width  = W+'px';
+C.style.height = H+'px';
+
+// ── ROAD LAYOUT ──────────────────────────────────
+const RL = W*0.07, RR = W*0.93;
+const RW = RR-RL, NL = 4;
+const LW = RW/NL;
+function lx(l){ return RL+LW*l+LW/2; }
+
+// ── PALETTE ──────────────────────────────────────
+const COL = {
+  bg:       '#0d0010',
+  road:     '#1a1520',
+  roadEdge: '#2a2035',
+  lane:     'rgba(255,220,0,0.18)',
+  curb:     '#2e2840',
+  saffron:  '#FF6B00',
+  gold:     '#FFD600',
+  green:    '#00A651',
+  red:      '#E8001D',
+  blue:     '#0057A8',
+  white:    '#fff',
+  dim:      'rgba(255,255,255,0.45)',
+};
+
+// ── ROUTES ───────────────────────────────────────
+const ROUTES = [
+  // EASY
+  {name:'Kharghar → Panvel',   icon:'🌿',diff:0,dname:'Easy',   chaos0:4,  color:COL.green, zone:'Navi Mumbai'},
+  {name:'Virar → Bhayander',   icon:'🏘️',diff:0,dname:'Easy',   chaos0:6,  color:COL.green, zone:'Western Line'},
+  {name:'Chembur → Vashi',     icon:'🌉',diff:0,dname:'Easy',   chaos0:8,  color:COL.green, zone:'Harbour'},
+  // MEDIUM
+  {name:'Andheri → Goregaon',  icon:'✈️',diff:1,dname:'Medium', chaos0:22, color:COL.saffron,zone:'Western Suburbs'},
+  {name:'Kurla → BKC',         icon:'💼',diff:1,dname:'Medium', chaos0:28, color:COL.saffron,zone:'Central'},
+  {name:'Bandra → Juhu',       icon:'🌊',diff:1,dname:'Medium', chaos0:25, color:COL.saffron,zone:'Sea Link Area'},
+  {name:'Ghatkopar → Worli',   icon:'🚇',diff:1,dname:'Medium', chaos0:30, color:COL.saffron,zone:'Metro Corridor'},
+  // HARD
+  {name:'Dadar → Parel',       icon:'🏭',diff:2,dname:'Hard',   chaos0:42, color:COL.red,    zone:'Central Mumbai'},
+  {name:'Bandra → Dadar',      icon:'🚂',diff:2,dname:'Hard',   chaos0:48, color:COL.red,    zone:'Western Line'},
+  {name:'Western Exp. Hwy',    icon:'🛣️',diff:2,dname:'Hard',   chaos0:52, color:COL.red,    zone:'Highway'},
+  {name:'Airport Road',        icon:'🛫',diff:2,dname:'Hard',   chaos0:55, color:COL.red,    zone:'Sahar'},
+  // CHAOS
+  {name:'Colaba → Fort',       icon:'🏛️',diff:3,dname:'CHAOS!', chaos0:68, color:COL.gold,   zone:'South Bombay'},
+  {name:'Mohammed Ali Rd',     icon:'🕌',diff:3,dname:'CHAOS!', chaos0:76, color:COL.gold,   zone:'Bhendi Bazaar'},
+  {name:'Ganpati Festival 🐘', icon:'🐘',diff:3,dname:'CHAOS!', chaos0:82, color:COL.gold,   zone:'Lalbaug'},
+  {name:'Crawford Market',     icon:'🧺',diff:3,dname:'CHAOS!', chaos0:78, color:COL.gold,   zone:'CST Area'},
+];
+
+// ── OBSTACLES ────────────────────────────────────
+const OBS = [
+  // Vehicles
+  {e:'🛺',w:34,h:48,s:1.2,sc:false,lbl:'Auto',      pts:2},
+  {e:'🚕',w:34,h:50,s:1.5,sc:false,lbl:'Taxi',      pts:2},
+  {e:'🚌',w:52,h:78,s:0.8,sc:false,lbl:'Bus',       pts:3,wide:true},
+  {e:'🚛',w:52,h:82,s:0.7,sc:false,lbl:'Truck',     pts:3,wide:true},
+  {e:'🏍️',w:24,h:38,s:2.5,sc:false,lbl:'Bike',      pts:1},
+  {e:'🚔',w:36,h:52,s:2.0,sc:false,lbl:'Police',    pts:4},
+  {e:'🚑',w:36,h:56,s:2.8,sc:false,lbl:'Ambulance', pts:5},
+  {e:'🚒',w:48,h:68,s:1.8,sc:false,lbl:'FireEngine',pts:5,wide:true},
+  {e:'🚲',w:22,h:38,s:0.7,sc:false,lbl:'Cycle',     pts:1},
+  {e:'🚐',w:40,h:58,s:1.3,sc:false,lbl:'Van',       pts:2},
+  {e:'🚗',w:34,h:50,s:1.6,sc:false,lbl:'Car',       pts:2},
+  // People & Animals (horn-able)
+  {e:'🚶',w:18,h:32,s:0.2,sc:true, lbl:'Walker',    pts:3},
+  {e:'👨‍👩‍👧',w:28,h:32,s:0.1,sc:true,lbl:'Family',    pts:3},
+  {e:'🧒',w:16,h:28,s:0.2,sc:true, lbl:'Child',     pts:4},
+  {e:'🐄',w:44,h:44,s:0.1,sc:true, lbl:'Cow',       pts:5},
+  {e:'🐕',w:24,h:24,s:0.4,sc:true, lbl:'Dog',       pts:2},
+  {e:'🐐',w:28,h:28,s:0.3,sc:true, lbl:'Goat',      pts:2},
+  {e:'🕊️',w:16,h:16,s:0.6,sc:true, lbl:'Pigeon',    pts:1},
+  {e:'🐈',w:20,h:20,s:0.5,sc:true, lbl:'Cat',       pts:1},
+  // Street stuff
+  {e:'🛒',w:28,h:36,s:0.0,sc:false,lbl:'Fruit Cart', pts:3,stat:true},
+  {e:'🧺',w:22,h:30,s:0.0,sc:false,lbl:'Chai Stall', pts:3,stat:true},
+  {e:'🏗️',w:48,h:48,s:0.0,sc:false,lbl:'Barricade',  pts:4,stat:true,wide:true},
+  // Hazards
+  {e:'🕳️',w:36,h:20,s:0.0,sc:false,lbl:'Pothole',   pts:0,pot:true},
+  {e:'💧',w:34,h:16,s:0.0,sc:false,lbl:'Puddle',    pts:0,pot:true},
+  {e:'🧱',w:38,h:30,s:0.0,sc:false,lbl:'Rubble',    pts:0,stat:true},
+];
+
+// ── PICKUPS ──────────────────────────────────────
+const PKUPS = [
+  {e:'🪙', w:20,h:20,fx:'coin',   val:5,  lbl:'Coin',    pts:5},
+  {e:'💰', w:24,h:24,fx:'coin',   val:25, lbl:'Big Coin', pts:15},
+  {e:'☕', w:24,h:24,fx:'speed',  val:0,  lbl:'Chai',     pts:10},
+  {e:'🍔', w:24,h:24,fx:'shield', val:0,  lbl:'Vada Pav', pts:10},
+  {e:'⛽', w:26,h:26,fx:'fuel',   val:35, lbl:'Fuel',     pts:8},
+  {e:'🌟', w:22,h:22,fx:'xp',     val:50, lbl:'Bonus',    pts:20},
+];
+
+// ── CITY EVENTS ──────────────────────────────────
+const EVENTS = [
+  {name:'🐘 GANPATI BAPPA MORYA!',  color:'#FF6B00',fx:'flood_obs',  dur:9000 },
+  {name:'🎺 BARAAT AAYA!',          color:'#FFD600', fx:'flood_obs',  dur:6000 },
+  {name:'✊ RASTA ROKO!',           color:'#E8001D', fx:'slow',       dur:7000 },
+  {name:'🚔 NAKA BANDI!',           color:'#0057A8', fx:'slow',       dur:5000 },
+  {name:'🌧️ HEAVY BARISH!',         color:'#4488FF', fx:'rain',       dur:16000},
+  {name:'🌟 VIP CONVOY!',           color:'#FFD600', fx:'slow',       dur:6000 },
+  {name:'🏏 INDIA JEET GAYI!',      color:'#00A651', fx:'flood_obs',  dur:5000 },
+  {name:'🎉 IPL TRAFFIC!',          color:'#FF6B00', fx:'slow',       dur:8000 },
+  {name:'🚚 TRUCK FASA BRIDGE PE!', color:'#888',    fx:'block',      dur:5000 },
+  {name:'🎊 NAVRATRI GARBA!',       color:'#FF44AA', fx:'flood_obs',  dur:7000 },
+  {name:'🕌 JUMMA NAMAZ TRAFFIC!',  color:'#00C87F', fx:'slow',       dur:5000 },
+  {name:'🎸 CONCERT CROWD!',        color:'#AA44FF', fx:'flood_obs',  dur:6000 },
+];
+
+// ── DRIVER QUOTES ────────────────────────────────
+const QUOTES = [
+  'Aye, dhyaan kidhar hai?','Side de bhai!','Horn sunai deta kya?',
+  'Bapre kitna traffic!','Shortcut se le lun?','Chutte nahi hai!',
+  'Signal dekh!','Barish kab jayega?','Ye rasta bhi khodne wale hai!',
+  'Kuthe jayacha ahe?','Meter se chalega?','Ek minute bhai!',
+  'Potholes hi potholes yaar!','Arre dada chutte dya!','Mumbai zindabad! 🙌',
+  'Bhai seedha chal!','Aye ulta ja raha hai kya?','Chalo chalo move karo!',
+  'Ae bhai zyada smart mat ban!','Kal se train lena yaar...','Apun ka city, apun ka rules 😎',
+];
+
+// ── LEVELS / XP ──────────────────────────────────
+const LEVELS = [
+  {xp:0,    name:'Naya Driver 🐣'},
+  {xp:100,  name:'Khatara Wala 🛺'},
+  {xp:300,  name:'Street Smart 😎'},
+  {xp:600,  name:'Mumbai Jaanta 🌆'},
+  {xp:1000, name:'Tapori Legend 🎩'},
+  {xp:2000, name:'Bombay Original 🏆'},
+];
+
+// ── SKILLS ───────────────────────────────────────
+const SKILLS = [
+  {id:'horn',  name:'Quick Horn',   desc:'Clears pedestrians faster',      unlockXp:0,   icon:'📯'},
+  {id:'dodge', name:'Drift Dodge',  desc:'Lane change is smoother',         unlockXp:100, icon:'💨'},
+  {id:'shield',name:'Vada Pav Armor',desc:'Shield lasts longer',           unlockXp:300, icon:'🛡️'},
+  {id:'fuel',  name:'Fuel Jugaad',  desc:'Fuel drains 20% slower',         unlockXp:600, icon:'⛽'},
+  {id:'rain',  name:'Rain Master',  desc:'Rain barely affects speed',      unlockXp:1000,icon:'☔'},
+];
+
+// ── STATE MACHINE ─────────────────────────────────
+let ST = 'menu'; // menu|route|play|pause|over|upgrade
+let selRoute = ROUTES[0];
+let selDiff  = 0;
+let routeScroll = 0;
+let prevST = '';
+
+// ── PERSISTENT SAVE ──────────────────────────────
+let SAVE = loadSave();
+function loadSave(){
+  try { return JSON.parse(localStorage.getItem('mby_save')||'{}'); } catch(e){ return {}; }
+}
+function writeSave(){
+  SAVE.best   = SAVE.best  || 0;
+  SAVE.xp     = SAVE.xp    || 0;
+  SAVE.coins  = SAVE.coins || 0;
+  SAVE.runs   = SAVE.runs  || 0;
+  SAVE.skills = SAVE.skills|| {};
+  localStorage.setItem('mby_save', JSON.stringify(SAVE));
+}
+if(!SAVE.best)  SAVE.best  = 0;
+if(!SAVE.xp)    SAVE.xp    = 0;
+if(!SAVE.coins) SAVE.coins = 0;
+if(!SAVE.runs)  SAVE.runs  = 0;
+if(!SAVE.skills)SAVE.skills= {};
+
+// ── GAME VARS ────────────────────────────────────
+let G = {};
+function resetG(){
+  G = {
+    dist:0, coins:0, fuel:100, chaos:selRoute.chaos0,
+    speed:4, baseSpeed:4, frame:0,
+    hour:7, weather:'clear',
+    shield:false, speedBoost:false, speedBoostTimer:0,
+    hornCd:0, invTimer:0,
+    scroll:0,
+    eventName:'', eventColor:COL.saffron, eventTimer:0,
+    speech:'', speechTimer:0,
+    rain:[], particles:[],
+    obs:[], pkups:[],
+    spawnT:0, pickT:0, fuelT:0,
+    lastEvtFrame:0,
+    overReason:'',
+    xpEarned:0,
+    paused:false,
+    totalObsDodged:0,
+    streetArt: generateStreetArt(),
+    buildings: generateBuildings(),
+    signs: generateSigns(),
+  };
+}
+
+// ── PLAYER ───────────────────────────────────────
+let P = {lane:1, x:0, y:0, velX:0, bounce:0};
+function initP(){
+  P.lane = 1;
+  P.x    = lx(P.lane);
+  P.y    = H*0.72;
+  P.velX = 0;
+  P.bounce = 0;
+}
+
+// ── PROCEDURAL ENVIRONMENT ───────────────────────
+function generateBuildings(){
+  const b=[];
+  // Left side buildings
+  for(let i=0;i<8;i++){
+    b.push({
+      side:'left', x:0, y:i*(H/4)-H*0.1,
+      w:RL-4, h:H/4+20,
+      color:['#1a1030','#0e0820','#15101d','#1c1228'][i%4],
+      windows:Math.floor(Math.random()*6)+2,
+      lit:Math.random()>.5,
+      sign:['🏪','🍜','💈','🏥','📱','🛒','⛪','🏢'][i%8],
+    });
+  }
+  // Right side
+  for(let i=0;i<8;i++){
+    b.push({
+      side:'right', x:RR+4, y:i*(H/4)-H*0.1,
+      w:W-RR-4, h:H/4+20,
+      color:['#0f1520','#12181a','#0d1415','#151a12'][i%4],
+      windows:Math.floor(Math.random()*6)+2,
+      lit:Math.random()>.5,
+      sign:['🕌','🛕','🏬','🏗️','🎭','🎪','🏨','🏦'][i%8],
+    });
+  }
+  return b;
+}
+
+function generateStreetArt(){
+  // Decorative roadside elements
+  return [
+    {type:'lamp', positions: Array.from({length:8},(_,i)=>({x:RL-12,y:i*(H/8),phase:i}))},
+    {type:'lamp', positions: Array.from({length:8},(_,i)=>({x:RR+12,y:i*(H/8),phase:i+4}))},
+  ];
+}
+
+function generateSigns(){
+  const msgs = [
+    'मुंबई माझी 🙏','BEST BUS ★','HORN OK PLEASE',
+    'USE DIPPER AT NIGHT','MUMBAI POLICE','NO PARKING','Chai Rs.10','Vada Pav Rs.20',
+    'BOMBAY GARAGE','WELCOME TO MUMBAI','DRIVE SAFE','NO OVERTAKING',
+  ];
+  const signs=[];
+  for(let i=0;i<6;i++){
+    signs.push({
+      msg: msgs[Math.floor(Math.random()*msgs.length)],
+      x: Math.random()<.5? RL+5 : RR-5,
+      side: Math.random()<.5? 'left':'right',
+      y: Math.random()*H,
+      color: [COL.saffron,COL.gold,COL.red,COL.blue][Math.floor(Math.random()*4)],
+    });
+  }
+  return signs;
+}
+
+// ── INPUT ─────────────────────────────────────────
+let touchSX = 0, touchSY = 0;
+let tapX = -1, tapY = -1;
+
+C.addEventListener('touchstart', e=>{
+  e.preventDefault();
+  const t = e.changedTouches[0];
+  const r = C.getBoundingClientRect();
+  touchSX = t.clientX; touchSY = t.clientY;
+  tapX = (t.clientX-r.left)*(W/r.width);
+  tapY = (t.clientY-r.top) *(H/r.height);
+},{passive:false});
+
+C.addEventListener('touchend', e=>{
+  e.preventDefault();
+  const t = e.changedTouches[0];
+  const r = C.getBoundingClientRect();
+  const ex = (t.clientX-r.left)*(W/r.width);
+  const ey = (t.clientY-r.top) *(H/r.height);
+  const dx = t.clientX-touchSX;
+  const dy = t.clientY-touchSY;
+  handleTouch(ex,ey,dx,dy);
+},{passive:false});
+
+C.addEventListener('click', e=>{
+  const r = C.getBoundingClientRect();
+  handleTouch((e.clientX-r.left)*(W/r.width),(e.clientY-r.top)*(H/r.height),0,0);
+});
+
+document.addEventListener('keydown', e=>{
+  if(e.key==='ArrowLeft' ||e.key==='a') moveP(-1);
+  if(e.key==='ArrowRight'||e.key==='d') moveP(1);
+  if(e.key===' ') { if(ST==='play') doHorn(); }
+  if(e.key==='p'||e.key==='Escape') togglePause();
+  if(e.key==='Enter'){
+    if(ST==='menu') { ST='route'; routeScroll=0; }
+    else if(ST==='over') resetAndPlay();
+  }
+});
+
+function handleTouch(x,y,dx,dy){
+  if(ST==='play'){
+    if(Math.abs(dx)>25){ moveP(dx<0?-1:1); return; }
+    // double-tap top for horn
+    if(y<H*0.3){ doHorn(); return; }
+    if(x<W/2) moveP(-1); else moveP(1);
+    return;
+  }
+  if(ST==='menu'){
+    if(y>H*0.52&&y<H*0.70){ ST='route'; routeScroll=0; }
+    if(y>H*0.73&&y<H*0.85){ ST='upgrade'; prevST='menu'; }
+    return;
+  }
+  if(ST==='route'){
+    // Diff tabs
+    if(y>H*0.16&&y<H*0.25){
+      const di=Math.floor(x/(W/4));
+      selDiff=Math.max(0,Math.min(3,di));
+      routeScroll=0; return;
+    }
+    // Card click
+    const filtered=ROUTES.filter(r=>r.diff===selDiff);
+    const cardH=80, cardGap=10, listTop=H*0.28;
+    for(let i=0;i<filtered.length;i++){
+      const cy=listTop+i*(cardH+cardGap)-routeScroll;
+      if(y>cy&&y<cy+cardH){ selRoute=filtered[i]; break; }
+    }
+    if(y>H*0.84) { resetAndPlay(); return; }
+    return;
+  }
+  if(ST==='pause'){
+    if(y>H*0.40&&y<H*0.53) { ST='play'; G.paused=false; }
+    if(y>H*0.55&&y<H*0.66) { ST='route'; routeScroll=0; }
+    if(y>H*0.68&&y<H*0.78) { ST='upgrade'; prevST='pause'; }
+    if(y>H*0.80&&y<H*0.90) { ST='menu'; }
+    return;
+  }
+  if(ST==='over'){
+    if(y>H*0.71&&y<H*0.82) { resetAndPlay(); return; }
+    if(y>H*0.84&&y<H*0.93) { ST='route'; routeScroll=0; }
+    return;
+  }
+  if(ST==='upgrade'){
+    if(y<H*0.12) { ST=prevST||'menu'; return; }
+    // Skill unlock buttons
+    const skillY0=H*0.30;
+    SKILLS.forEach((sk,i)=>{
+      const by=skillY0+i*80;
+      if(y>by&&y<by+66&&x>W*0.62&&x<W*0.92){
+        tryUnlockSkill(sk);
+      }
+    });
+    return;
+  }
+}
+
+// ── PAUSE BUTTON TAP ────────────────────────────
+C.addEventListener('click', e=>{
+  if(ST!=='play') return;
+  const r=C.getBoundingClientRect();
+  const x=(e.clientX-r.left)*(W/r.width);
+  const y=(e.clientY-r.top)*(H/r.height);
+  if(x>W/2-28&&x<W/2+28&&y>24&&y<52) togglePause();
+});
+
+// ── MECHANICS ─────────────────────────────────────
+function moveP(dir){
+  if(ST!=='play') return;
+  P.lane = Math.max(0,Math.min(NL-1,P.lane+dir));
+}
+
+function doHorn(){
+  if(ST!=='play'||G.hornCd>0) return;
+  G.hornCd=30;
+  // Scare horn-able obstacles
+  for(let i=0;i<G.obs.length;i++){
+    const o=G.obs[i];
+    const d=Math.abs(P.x-o.x)+Math.abs(P.y-o.y);
+    if(o.sc&&d<160) o.scared=80;
+  }
+  showSpeech('📯 BEEP BEEP!');
+  flashHorn();
+}
+
+function flashHorn(){
+  const el=document.getElementById('hornvfx');
+  el.classList.remove('show');
+  void el.offsetWidth;
+  el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),500);
+}
+
+function togglePause(){
+  if(ST==='play'){ ST='pause'; G.paused=true; }
+  else if(ST==='pause'){ ST='play'; G.paused=false; }
+}
+
+function resetAndPlay(){
+  resetG(); initP(); initRain();
+  ST='play'; G.paused=false;
+  SAVE.runs = (SAVE.runs||0)+1;
+  writeSave();
+  G.speech='Chal bhai, '+selRoute.zone+' nikal! 🛺';
+  G.speechTimer=200;
+  setTimeout(()=>showToast('🛺 Tap left/right to dodge • Top = 📯 Horn'),800);
+}
+
+function tryUnlockSkill(sk){
+  if(SAVE.skills[sk.id]) return;
+  const xp = SAVE.xp||0;
+  if(xp>=sk.unlockXp){
+    SAVE.skills[sk.id]=true;
+    writeSave();
+    showToast('✅ '+sk.name+' unlocked!');
+  } else {
+    showToast('Need '+sk.unlockXp+' XP to unlock');
+  }
+}
+
+// ── SPAWN ─────────────────────────────────────────
+function spawnObs(){
+  const chaos=G.chaos/100;
+  const pool=[];
+  for(let i=0;i<OBS.length;i++){
+    const o=OBS[i];
+    if((o.lbl==='Cow'||o.lbl==='Goat')&&chaos<0.18) continue;
+    if((o.lbl==='Walker'||o.lbl==='Family'||o.lbl==='Child')&&chaos<0.12) continue;
+    if(o.lbl==='Ambulance'&&chaos<0.22) continue;
+    pool.push(i);
+  }
+  const idx=pool[Math.floor(Math.random()*pool.length)];
+  const def=OBS[idx];
+  const lane=Math.floor(Math.random()*NL);
+  for(let i=0;i<G.obs.length;i++){
+    const ob=G.obs[i];
+    if(Math.abs(ob.lane-lane)<=(def.wide?1:0)&&ob.y<60&&ob.y>-120) return;
+  }
+  G.obs.push({
+    idx,e:def.e,w:def.w,h:def.h,
+    lane,x:lx(lane),y:-def.h-10,
+    spd:def.stat||def.pot?0:def.s,
+    sc:def.sc,stat:!!def.stat,pot:!!def.pot,wide:!!def.wide,
+    scared:0,pts:def.pts,
+    shadow:Math.random()>.7, // some cast shadows
+  });
+}
+
+function spawnPickup(){
+  const lane=Math.floor(Math.random()*NL);
+  const r=Math.random()*100;
+  let pi=0,acc=0;
+  const wts=[50,8,16,12,10,4];
+  for(;pi<wts.length-1;pi++){ acc+=wts[pi]; if(r<acc)break; }
+  const def=PKUPS[pi];
+  G.pkups.push({
+    e:def.e,w:def.w,h:def.h,fx:def.fx,val:def.val,
+    lane,x:lx(lane),y:-def.h,
+    bob:Math.random()*Math.PI*2,pts:def.pts,
+    glow:def.fx==='xp',
+  });
+}
+
+// ── RAIN ──────────────────────────────────────────
+function initRain(){
+  G.rain=[];
+  const n=G.weather==='heavy'?160:G.weather==='drizzle'?60:0;
+  for(let i=0;i<n;i++){
+    G.rain.push({x:Math.random()*W,y:Math.random()*H,
+      spd:8+Math.random()*6,len:10+Math.random()*14,a:0.3+Math.random()*0.4});
+  }
+}
+
+// ── UPDATE ────────────────────────────────────────
+function update(){
+  if(ST!=='play'||G.paused) return;
+  G.frame++;
+  G.hour=(7+G.frame/1800)%24;
+
+  // Progression
+  G.dist    += G.speed*0.45;
+  G.chaos    = Math.min(100, selRoute.chaos0+G.dist*0.025);
+  G.baseSpeed= 3.5+G.chaos*0.045;
+  const fuelMult = SAVE.skills?.fuel ? 0.80 : 1.0;
+  G.fuel    -= (0.018+G.chaos*0.00014)*fuelMult;
+  if(!G.speedBoost) G.speed=G.baseSpeed;
+  if(G.fuel<=0){ G.fuel=0; endGame('Petrol khatam! ⛽'); return; }
+  G.scroll  = (G.scroll+G.speed*1.6)%60;
+
+  // Player smooth movement
+  const tx=lx(P.lane);
+  const lerp = SAVE.skills?.dodge ? 0.25 : 0.20;
+  P.velX += (tx-P.x)*lerp;
+  P.velX *= 0.68;
+  P.x    += P.velX;
+  P.x     = Math.max(RL+12,Math.min(RR-12,P.x));
+  P.bounce = Math.sin(G.frame*0.15)*1.8;
+
+  // Timers
+  if(G.hornCd>0)     G.hornCd--;
+  if(G.invTimer>0)   G.invTimer--;
+  if(G.speechTimer>0){ G.speechTimer--; if(!G.speechTimer) G.speech=''; }
+  if(G.eventTimer>0)  G.eventTimer--;
+  if(G.speedBoost){ G.speedBoostTimer--; if(G.speedBoostTimer<=0){ G.speedBoost=false; G.speed=G.baseSpeed; } }
+
+  // Move obstacles
+  for(let i=G.obs.length-1;i>=0;i--){
+    const o=G.obs[i];
+    if(o.scared>0){ o.scared--; o.y-=2; }
+    o.y += G.speed+o.spd;
+    if(o.y>H+120){ G.obs.splice(i,1); G.totalObsDodged++; }
+  }
+
+  // Move pickups
+  for(let i=G.pkups.length-1;i>=0;i--){
+    const p=G.pkups[i];
+    p.bob+=0.09; p.y+=G.speed*0.78;
+    if(p.y>H+50) G.pkups.splice(i,1);
+  }
+
+  // Rain
+  for(const d of G.rain){ d.y+=d.spd; d.x-=1.2; if(d.y>H){d.y=-10;d.x=Math.random()*W;} }
+
+  // Particles
+  for(let i=G.particles.length-1;i>=0;i--){
+    const pt=G.particles[i];
+    pt.x+=pt.vx; pt.y+=pt.vy; pt.vy+=0.12; pt.life--;
+    if(pt.life<=0) G.particles.splice(i,1);
+  }
+
+  // Scroll road signs
+  for(const s of G.signs){ s.y+=G.speed*0.4; if(s.y>H+30) s.y=-30; }
+
+  // Spawn
+  G.spawnT++;
+  const rate=Math.max(7,36-G.chaos*0.26);
+  if(G.spawnT>=rate){ spawnObs(); G.spawnT=0; }
+  G.pickT++;
+  if(G.pickT>=90){ spawnPickup(); G.pickT=0; }
+  G.fuelT++;
+  if(G.fuelT>=260){ spawnPickup(); G.fuelT=0; }
+
+  doCollisions();
+
+  // Events
+  if(G.frame-G.lastEvtFrame>500&&Math.random()<0.002*(G.chaos/28)){
+    triggerEvent(); G.lastEvtFrame=G.frame;
+  }
+  // Weather
+  if(G.frame%1800===0) shiftWeather();
+  // Speech
+  if(G.frame%300===0&&Math.random()<0.38)
+    showSpeech(QUOTES[Math.floor(Math.random()*QUOTES.length)]);
+}
+
+// ── COLLISIONS ───────────────────────────────────
+function doCollisions(){
+  const pw=16,ph=26;
+  for(let i=G.obs.length-1;i>=0;i--){
+    const o=G.obs[i];
+    const ow=o.w*0.48,oh=o.h*0.48;
+    if(Math.abs(P.x-o.x)<pw+ow&&Math.abs(P.y-o.y)<ph+oh){
+      if(o.scared>0||G.invTimer>0) continue;
+      if(G.shield){
+        G.shield=false; G.invTimer=60;
+        burst(o.x,o.y,'🛡️',4); G.obs.splice(i,1);
+        showSpeech('Vada Pav ne bachaya! 🛡️'); continue;
+      }
+      if(o.pot){
+        G.fuel=Math.max(0,G.fuel-10); G.invTimer=55;
+        burst(o.x,o.y,'💢',3); showSpeech('Aye pothole! 💢');
+        hitFlash(); continue;
+      }
+      burst(P.x,P.y,'💥',10);
+      hitFlash();
+      endGame(o.e+' '+o.lbl+' se takkar!');
+      return;
+    }
+  }
+  for(let i=G.pkups.length-1;i>=0;i--){
+    const p=G.pkups[i];
+    if(Math.abs(P.x-p.x)<30&&Math.abs(P.y-p.y)<32){
+      collectPkup(p); G.pkups.splice(i,1);
+    }
+  }
+}
+
+function collectPkup(p){
+  burst(p.x,p.y,p.e,4);
+  if(p.fx==='coin') { G.coins+=p.val; addXP(p.pts*2); }
+  if(p.fx==='speed'){
+    G.speedBoost=true; G.speed=G.baseSpeed*1.9;
+    G.speedBoostTimer=240; showSpeech('Chai mili! 🚀 Speed boost!');
+  }
+  if(p.fx==='shield'){
+    G.shield=true; showSpeech('Vada Pav! Shield ON! 🛡️');
+  }
+  if(p.fx==='fuel'){
+    G.fuel=Math.min(100,G.fuel+p.val); showSpeech('Petrol mila! ⛽');
+  }
+  if(p.fx==='xp'){
+    addXP(50); showSpeech('Bonus! +50 XP 🌟');
+  }
+}
+
+function addXP(amount){
+  G.xpEarned+=amount;
+  const prev=getLvl(SAVE.xp);
+  SAVE.xp = (SAVE.xp||0)+amount;
+  const cur=getLvl(SAVE.xp);
+  if(cur>prev) showToast('🎉 LEVEL UP! '+LEVELS[cur].name);
+  writeSave();
+}
+
+function getLvl(xp){
+  let lvl=0;
+  for(let i=1;i<LEVELS.length;i++) if(xp>=LEVELS[i].xp) lvl=i;
+  return lvl;
+}
+
+function burst(x,y,e,n){
+  for(let i=0;i<n;i++){
+    G.particles.push({e,x,y,
+      vx:(Math.random()-.5)*6,vy:-2-Math.random()*4,
+      size:16+Math.random()*12,life:35+Math.random()*20});
+  }
+}
+
+function endGame(reason){
+  ST='over'; G.overReason=reason;
+  const d=G.dist|0;
+  if(d>SAVE.best){ SAVE.best=d; }
+  SAVE.coins=(SAVE.coins||0)+G.coins;
+  const xpBonus=Math.floor(G.dist/10)+G.totalObsDodged*2;
+  addXP(xpBonus);
+  writeSave();
+}
+
+function showSpeech(t){ G.speech=t; G.speechTimer=200; }
+function hitFlash(){
+  const el=document.getElementById('redflash');
+  el.className='hit'; void el.offsetWidth;
+  setTimeout(()=>el.className='fade',100);
+  setTimeout(()=>el.className='',700);
+}
+
+function triggerEvent(){
+  const ev=EVENTS[Math.floor(Math.random()*EVENTS.length)];
+  G.eventName=ev.name; G.eventColor=ev.color; G.eventTimer=220;
+  showToast(ev.name);
+  showSpeech(ev.name);
+  if(ev.fx==='slow'){ const pv=G.baseSpeed; G.baseSpeed*=0.52; setTimeout(()=>{if(ST==='play')G.baseSpeed=pv;},ev.dur); }
+  else if(ev.fx==='flood_obs'){ for(let i=0;i<8;i++) setTimeout(spawnObs,i*220); }
+  else if(ev.fx==='block'){ for(let i=0;i<5;i++) setTimeout(spawnObs,i*180); }
+  else if(ev.fx==='rain'){ G.weather='heavy'; initRain(); setTimeout(()=>{G.weather='clear';initRain();},ev.dur); }
+}
+
+function shiftWeather(){
+  const r=Math.random(),c=G.chaos/100;
+  const prev=G.weather;
+  G.weather=r<0.5?'clear':r<0.7+c*0.2?'drizzle':'heavy';
+  initRain();
+  if(G.weather==='heavy'&&prev!=='heavy') showSpeech('Mumbai barish! 🌧️');
+}
+
+// ── TOAST ─────────────────────────────────────────
+const TQ=[];let tA=false;
+function showToast(msg){TQ.push(msg);if(!tA)procToast();}
+function procToast(){
+  if(!TQ.length){tA=false;return;}tA=true;
+  const el=document.getElementById('toast');
+  el.textContent=TQ.shift();el.classList.add('show');
+  clearTimeout(window._tt);
+  window._tt=setTimeout(()=>{el.classList.remove('show');setTimeout(procToast,300);},2200);
+}
+
+// ═══════════════════════════════════════════════
+//  DRAW ENGINE
+// ═══════════════════════════════════════════════
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  if(ST==='menu')    { drawMenu(); return; }
+  if(ST==='route')   { drawRoute(); return; }
+  if(ST==='upgrade') { drawUpgrade(); return; }
+  drawGame();
+  if(ST==='pause') drawPause();
+  if(ST==='over')  drawOver();
+}
+
+// ── SKY / TIME-OF-DAY ────────────────────────────
+function drawSky(){
+  const h=G.hour;
+  let c1,c2,c3;
+  if(h>=5&&h<7)      { c1='#1a0530';c2='#6b2d5e';c3='#ff7043'; } // dawn
+  else if(h>=7&&h<10){ c1='#0a1628';c2='#1e3a5f';c3='#2196f3'; } // morning
+  else if(h>=10&&h<16){c1='#061018';c2='#0d2137';c3='#1565c0'; } // day
+  else if(h>=16&&h<19){c1='#1a0a00';c2='#5d2e00';c3='#ff6d00'; } // sunset
+  else if(h>=19&&h<21){c1='#0a0518';c2='#1a0a30';c3='#4a0e6e'; } // dusk
+  else                { c1='#000005';c2='#050110';c3='#0d0320'; } // night
+
+  const grad=ctx.createLinearGradient(0,0,0,H*0.18);
+  grad.addColorStop(0,c1);
+  grad.addColorStop(0.5,c2);
+  grad.addColorStop(1,c3);
+  ctx.fillStyle=grad;
+  ctx.fillRect(0,0,W,H*0.18);
+
+  // Stars at night
+  if(h<6||h>20){
+    ctx.fillStyle='rgba(255,255,255,0.7)';
+    for(let i=0;i<20;i++){
+      const sx=(i*117+23)%W, sy=(i*37+11)%(H*0.14);
+      const sz=Math.sin(G.frame*0.02+i)*0.5+0.8;
+      ctx.globalAlpha=sz*0.8;
+      ctx.fillRect(sx,sy,1.5,1.5);
+    }
+    ctx.globalAlpha=1;
+  }
+}
+
+// ── BUILDINGS ────────────────────────────────────
+function drawBuildings(){
+  const scroll=(G.scroll*0.1)%60;
+  for(const b of G.buildings){
+    const drawX = b.side==='left'?0:b.x;
+    const drawW = b.side==='left'?b.w:b.w;
+    const drawY = (b.y+scroll)%(H+40)-20;
+
+    // Building body
+    ctx.fillStyle=b.color;
+    ctx.fillRect(drawX,drawY,drawW,b.h+10);
+
+    // Windows
+    const lit=G.hour<6||G.hour>18;
+    for(let wi=0;wi<b.windows;wi++){
+      for(let wj=0;wj<3;wj++){
+        const wx=drawX+5+wi*(drawW/(b.windows+1));
+        const wy=drawY+10+wj*20;
+        if(wy>drawY&&wy<drawY+b.h-10){
+          ctx.fillStyle=lit&&Math.random()>.2?'rgba(255,230,100,0.6)':'rgba(50,50,70,0.5)';
+          ctx.fillRect(wx,wy,5,7);
+        }
+      }
+    }
+
+    // Sign emoji
+    if(drawY>-10&&drawY<H){
+      ctx.font='11px serif'; ctx.textAlign='center';
+      ctx.textBaseline='middle';
+      ctx.globalAlpha=0.7;
+      ctx.fillText(b.sign, drawX+drawW/2, drawY+b.h*0.3);
+      ctx.globalAlpha=1;
+    }
+  }
+}
+
+// ── ROAD ─────────────────────────────────────────
+function drawRoad(){
+  // Road body
+  const rg=ctx.createLinearGradient(RL,0,RR,0);
+  rg.addColorStop(0,'#121018');
+  rg.addColorStop(0.5,'#1a1725');
+  rg.addColorStop(1,'#121018');
+  ctx.fillStyle=rg;
+  ctx.fillRect(RL,0,RW,H);
+
+  // Road edges - thick curb lines
+  ctx.strokeStyle='rgba(255,200,50,0.5)';
+  ctx.lineWidth=3;
+  ctx.beginPath(); ctx.moveTo(RL,0); ctx.lineTo(RL,H); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(RR,0); ctx.lineTo(RR,H); ctx.stroke();
+
+  // Outer pavement texture
+  ctx.fillStyle='#160f22';
+  ctx.fillRect(0,0,RL,H);
+  ctx.fillRect(RR,0,W-RR,H);
+
+  // Lane dashes
+  for(let l=1;l<NL;l++){
+    const dx=RL+LW*l;
+    for(let y=-60;y<H+60;y+=60){
+      const yd=(y+G.scroll)%60-60;
+      ctx.fillStyle='rgba(255,220,0,0.20)';
+      ctx.fillRect(dx-1.5,yd,3,38);
+    }
+  }
+
+  // Center double-line (taxi convention)
+  const cx=RL+RW/2;
+  ctx.strokeStyle='rgba(255,255,150,0.1)';
+  ctx.lineWidth=1;
+  ctx.setLineDash([20,20]);
+  ctx.lineDashOffset=-G.scroll;
+  ctx.beginPath(); ctx.moveTo(cx-3,0); ctx.lineTo(cx-3,H); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx+3,0); ctx.lineTo(cx+3,H); ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+// ── STREET LAMPS ─────────────────────────────────
+function drawLamps(){
+  const isNight=G.hour<6||G.hour>19;
+  const lampPositions=[
+    {x:RL-12},{x:RR+12}
+  ];
+  for(const lp of lampPositions){
+    for(let i=0;i<8;i++){
+      const ly=(i*120+G.scroll*0.8)%(H+80)-40;
+      if(isNight){
+        // Glow
+        const glowGrad=ctx.createRadialGradient(lp.x,ly,0,lp.x,ly,35);
+        glowGrad.addColorStop(0,'rgba(255,220,100,0.15)');
+        glowGrad.addColorStop(1,'rgba(255,220,100,0)');
+        ctx.fillStyle=glowGrad;
+        ctx.fillRect(lp.x-35,ly-35,70,70);
+      }
+      // Pole
+      ctx.strokeStyle='rgba(150,130,80,0.6)';
+      ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(lp.x,ly+8); ctx.lineTo(lp.x,ly+30); ctx.stroke();
+      // Lamp head
+      ctx.fillStyle=isNight?'#ffd580':'rgba(200,180,100,0.4)';
+      ctx.beginPath(); ctx.arc(lp.x,ly,5,0,Math.PI*2); ctx.fill();
+    }
+  }
+}
+
+// ── ROAD SIGNS ───────────────────────────────────
+function drawSigns(){
+  ctx.save();
+  for(const s of G.signs){
+    if(s.y<-20||s.y>H+20) continue;
+    const pad=4, textSize=9;
+    ctx.font=`bold ${textSize}px 'Baloo 2',cursive`;
+    ctx.textBaseline='middle'; ctx.textAlign='center';
+    const tw=ctx.measureText(s.msg).width;
+    const bx=s.side==='left'? RL-tw/2-pad-2 : RR+tw/2+pad+2;
+    // Sign board
+    ctx.fillStyle='rgba(0,0,0,0.7)';
+    ctx.strokeStyle=s.color;
+    ctx.lineWidth=1.5;
+    ctx.beginPath();
+    ctx.roundRect(bx-tw/2-pad,s.y-10,tw+pad*2,20,4);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle=s.color;
+    ctx.fillText(s.msg,bx,s.y);
+  }
+  ctx.restore();
+}
+
+// ── RAIN ─────────────────────────────────────────
+function drawRain(){
+  if(!G.rain.length) return;
+  ctx.save();
+  ctx.strokeStyle=G.weather==='heavy'?'rgba(120,180,255,0.45)':'rgba(120,180,255,0.25)';
+  ctx.lineWidth=1.2;
+  for(const d of G.rain){
+    ctx.globalAlpha=d.a;
+    ctx.beginPath();
+    ctx.moveTo(d.x,d.y);
+    ctx.lineTo(d.x-4,d.y+d.len);
+    ctx.stroke();
+  }
+  ctx.globalAlpha=1;
+  // Rain overlay
+  if(G.weather==='heavy'){
+    ctx.fillStyle='rgba(50,100,180,0.05)';
+    ctx.fillRect(0,0,W,H);
+  }
+  ctx.restore();
+}
+
+// ── PLAYER RICKSHAW ──────────────────────────────
+function drawPlayer(){
+  ctx.save();
+  const inv = G.invTimer>0;
+  if(inv&&G.frame%6<3){ ctx.restore(); return; }
+
+  const px=P.x, py=P.y+P.bounce;
+  const lean=P.velX*0.08;
+
+  // Shadow
+  ctx.fillStyle='rgba(0,0,0,0.3)';
+  ctx.beginPath();
+  ctx.ellipse(px,py+22,18,7,0,0,Math.PI*2);
+  ctx.fill();
+
+  // Shield aura
+  if(G.shield){
+    const shieldGrad=ctx.createRadialGradient(px,py,10,px,py,36);
+    shieldGrad.addColorStop(0,'rgba(255,220,0,0)');
+    shieldGrad.addColorStop(0.7,'rgba(255,220,0,0.15)');
+    shieldGrad.addColorStop(1,'rgba(255,220,0,0.35)');
+    ctx.fillStyle=shieldGrad;
+    ctx.beginPath(); ctx.arc(px,py,36+Math.sin(G.frame*0.1)*3,0,Math.PI*2); ctx.fill();
+  }
+
+  // Speed boost trail
+  if(G.speedBoost){
+    for(let i=0;i<5;i++){
+      ctx.globalAlpha=0.15*(5-i)/5;
+      ctx.font='30px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('🛺',px+lean*5,py+12+i*8);
+    }
+    ctx.globalAlpha=1;
+  }
+
+  ctx.translate(px,py);
+  ctx.rotate(lean);
+  ctx.font='34px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('🛺',0,0);
+  ctx.restore();
+}
+
+// ── OBSTACLES ────────────────────────────────────
+function drawObs(){
+  for(const o of G.obs){
+    ctx.save();
+    // Shadow
+    ctx.fillStyle='rgba(0,0,0,0.25)';
+    ctx.beginPath(); ctx.ellipse(o.x,o.y+o.h*0.42,o.w*0.4,o.h*0.12,0,0,Math.PI*2); ctx.fill();
+    // Emoji
+    ctx.font=Math.round(o.w*0.85)+'px serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    if(o.scared>0){
+      ctx.globalAlpha=0.7+Math.sin(G.frame*0.3)*0.3;
+      ctx.font=Math.round(o.w*0.7)+'px serif';
+    }
+    ctx.fillText(o.e,o.x,o.y);
+    ctx.restore();
+  }
+}
+
+// ── PICKUPS ──────────────────────────────────────
+function drawPickups(){
+  for(const p of G.pkups){
+    ctx.save();
+    const bob=Math.sin(p.bob)*4;
+    if(p.glow){
+      const gg=ctx.createRadialGradient(p.x,p.y+bob,0,p.x,p.y+bob,22);
+      gg.addColorStop(0,'rgba(255,220,50,0.3)');
+      gg.addColorStop(1,'rgba(255,220,50,0)');
+      ctx.fillStyle=gg;
+      ctx.beginPath(); ctx.arc(p.x,p.y+bob,22,0,Math.PI*2); ctx.fill();
+    }
+    ctx.font=Math.round(p.w*0.9)+'px serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(p.e,p.x,p.y+bob);
+    ctx.restore();
+  }
+}
+
+// ── PARTICLES ────────────────────────────────────
+function drawParticles(){
+  for(const pt of G.particles){
+    ctx.save();
+    ctx.globalAlpha=Math.max(0,pt.life/50);
+    ctx.font=pt.size+'px serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(pt.e,pt.x,pt.y);
+    ctx.restore();
+  }
+}
+
+// ── SPEECH BUBBLE ────────────────────────────────
+function drawSpeech(){
+  if(!G.speech) return;
+  ctx.save();
+  ctx.font="bold 12px 'Baloo 2',cursive";
+  ctx.textBaseline='middle'; ctx.textAlign='center';
+  const tw=ctx.measureText(G.speech).width;
+  const bw=tw+22,bh=28;
+  const bx=P.x-bw/2,by=P.y-70;
+  const alpha=G.speechTimer>50?1:G.speechTimer/50;
+  ctx.globalAlpha=alpha;
+  // Bubble
+  ctx.fillStyle='#fff';
+  ctx.strokeStyle=COL.gold;
+  ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.roundRect?ctx.roundRect(bx,by,bw,bh,10):ctx.rect(bx,by,bw,bh);
+  ctx.fill(); ctx.stroke();
+  // Tail
+  ctx.beginPath(); ctx.moveTo(P.x-6,by+bh); ctx.lineTo(P.x,by+bh+10); ctx.lineTo(P.x+6,by+bh); ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle='#111';
+  ctx.fillText(G.speech,P.x,by+bh/2);
+  ctx.restore();
+}
+
+// ── EVENT BANNER ─────────────────────────────────
+function drawEventBanner(){
+  if(G.eventTimer<=0) return;
+  const alpha=G.eventTimer>50?1:G.eventTimer/50;
+  ctx.save();
+  ctx.globalAlpha=alpha;
+  const bg=ctx.createLinearGradient(0,0,W,0);
+  bg.addColorStop(0,'rgba(0,0,0,0)');
+  bg.addColorStop(0.15,G.eventColor);
+  bg.addColorStop(0.85,G.eventColor);
+  bg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=bg;
+  ctx.fillRect(0,H*0.13,W,36);
+  ctx.fillStyle='#fff';
+  ctx.font="bold 14px 'Baloo 2',cursive";
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(G.eventName,W/2,H*0.13+18);
+  ctx.restore();
+}
+
+// ── HUD ──────────────────────────────────────────
+function drawHUD(){
+  ctx.save();
+  // Top bar bg
+  const tbg=ctx.createLinearGradient(0,0,0,55);
+  tbg.addColorStop(0,'rgba(0,0,0,0.85)');
+  tbg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=tbg;
+  ctx.fillRect(0,0,W,55);
+
+  // Distance
+  ctx.fillStyle=COL.gold;
+  ctx.font="bold 14px 'Baloo 2',cursive";
+  ctx.textAlign='left'; ctx.textBaseline='middle';
+  ctx.fillText('📍 '+(G.dist|0)+'m', 10,18);
+
+  // Coins
+  ctx.fillStyle='#fff';
+  ctx.font="13px 'Baloo 2',cursive";
+  ctx.fillText('🪙 '+G.coins, 10,38);
+
+  // Route name
+  ctx.fillStyle='rgba(255,255,255,0.35)';
+  ctx.font="10px 'Baloo 2',cursive";
+  ctx.textAlign='center';
+  ctx.fillText(selRoute.icon+' '+selRoute.name, W/2,14);
+
+  // Pause button
+  ctx.fillStyle='rgba(255,255,255,0.6)';
+  ctx.font='bold 16px serif'; ctx.textAlign='center';
+  ctx.fillText('⏸',W/2,35);
+
+  // Fuel bar
+  ctx.fillStyle='rgba(255,255,255,0.45)';
+  ctx.font="10px 'Baloo 2',cursive";
+  ctx.textAlign='right';
+  ctx.fillText('⛽ '+(G.fuel|0)+'%', W-10,18);
+
+  const bw=100,bh=9,bx=W-110,by=25;
+  ctx.fillStyle='rgba(255,255,255,0.12)';
+  ctx.beginPath(); ctx.roundRect?ctx.roundRect(bx,by,bw,bh,4):ctx.rect(bx,by,bw,bh); ctx.fill();
+  const fc=G.fuel<20?COL.red:G.fuel<50?COL.saffron:COL.green;
+  ctx.fillStyle=fc;
+  ctx.beginPath(); ctx.roundRect?ctx.roundRect(bx,by,bw*(G.fuel/100),bh,4):ctx.rect(bx,by,bw*(G.fuel/100),bh); ctx.fill();
+
+  // Shield & speed boost icons
+  let ix=W-10;
+  if(G.shield){ ctx.font='16px serif'; ctx.textAlign='right'; ctx.fillText('🛡️',ix,40); ix-=22; }
+  if(G.speedBoost){ ctx.fillText('🚀',ix,40); }
+
+  // Bottom HUD
+  const bbg=ctx.createLinearGradient(0,H-50,0,H);
+  bbg.addColorStop(0,'rgba(0,0,0,0)'); bbg.addColorStop(1,'rgba(0,0,0,0.85)');
+  ctx.fillStyle=bbg; ctx.fillRect(0,H-50,W,50);
+
+  // Chaos label
+  ctx.fillStyle='rgba(255,107,0,0.8)';
+  ctx.font="bold 9px 'Baloo 2',cursive";
+  ctx.textAlign='left'; ctx.textBaseline='middle';
+  ctx.fillText('🔥 CHAOS', 10,H-30);
+
+  // Chaos bar
+  const cw=W-20,ch=7,cx=10,cy=H-19;
+  ctx.fillStyle='rgba(255,255,255,0.08)';
+  ctx.beginPath(); ctx.roundRect?ctx.roundRect(cx,cy,cw,ch,3):ctx.rect(cx,cy,cw,ch); ctx.fill();
+  const cg=ctx.createLinearGradient(cx,0,cx+cw,0);
+  cg.addColorStop(0,'#FF6B00'); cg.addColorStop(1,'#E8001D');
+  ctx.fillStyle=cg;
+  ctx.beginPath(); ctx.roundRect?ctx.roundRect(cx,cy,cw*(G.chaos/100),ch,3):ctx.rect(cx,cy,cw*(G.chaos/100),ch); ctx.fill();
+
+  // Speed
+  ctx.fillStyle='rgba(255,255,255,0.3)';
+  ctx.font="9px 'Baloo 2',cursive";
+  ctx.textAlign='right';
+  ctx.fillText('SPEED '+G.speed.toFixed(1)+'x', W-10,H-30);
+
+  // Time of day
+  const tod=G.hour<5?'🌙':G.hour<12?'🌅':G.hour<17?'☀️':G.hour<20?'🌆':'🌙';
+  ctx.fillText(tod, W-30,H-50);
+
+  // Weather
+  if(G.weather==='heavy') { ctx.textAlign='center'; ctx.fillText('🌧️',W/2,H-50); }
+  else if(G.weather==='drizzle') { ctx.textAlign='center'; ctx.fillText('🌦️',W/2,H-50); }
+
+  // Touch hint (early game)
+  if(G.dist<150){
+    ctx.fillStyle='rgba(255,255,255,0.07)';
+    ctx.fillRect(0,H*0.6,W/2,H*0.3);
+    ctx.fillRect(W/2,H*0.6,W/2,H*0.3);
+    ctx.fillStyle='rgba(255,255,255,0.15)';
+    ctx.font="bold 12px 'Baloo 2',cursive";
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('◀ TAP',W/4,H*0.76);
+    ctx.fillText('TAP ▶',W*3/4,H*0.76);
+  }
+
+  ctx.restore();
+}
+
+// ── MAIN GAME DRAW ───────────────────────────────
+function drawGame(){
+  drawSky();
+  drawBuildings();
+  drawRoad();
+  drawLamps();
+  drawSigns();
+  drawRain();
+  drawObs();
+  drawPickups();
+  drawPlayer();
+  drawParticles();
+  drawSpeech();
+  drawEventBanner();
+  if(ST==='play'||ST==='pause'||ST==='over') drawHUD();
+}
+
+// ═══════════════ MENU ════════════════════════════
+function drawMenu(){
+  const t=Date.now()/1000;
+
+  // Animated gradient background
+  const g=ctx.createLinearGradient(0,0,W,H);
+  g.addColorStop(0,'#1a0030');
+  g.addColorStop(0.3+0.08*Math.sin(t*0.5),'#3d0020');
+  g.addColorStop(0.6+0.08*Math.cos(t*0.4),'#FF4500');
+  g.addColorStop(1,'#FFD600');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+
+  // Floating city silhouette elements
+  ctx.globalAlpha=0.12;
+  ['🚌','🐄','☔','🎺','🌴','🚂','🕌','🏪','🌊','🎪'].forEach((e,i)=>{
+    ctx.font='28px serif'; ctx.textAlign='center';
+    ctx.fillText(e, W*(i+0.5)/10, H*0.85+Math.sin(t*0.7+i)*18);
+  });
+  ctx.globalAlpha=1;
+
+  // Decorative arched pattern
+  ctx.strokeStyle='rgba(255,200,0,0.12)';
+  ctx.lineWidth=2;
+  for(let a=0;a<5;a++){
+    ctx.beginPath();
+    ctx.arc(W/2,H*0.42,60+a*28,Math.PI,Math.PI*2);
+    ctx.stroke();
+  }
+
+  // Bouncing rickshaw
+  ctx.font='90px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('🛺', W/2, H*0.25+Math.sin(t*1.6)*12);
+
+  // TITLE
+  ctx.shadowColor='rgba(0,0,0,0.5)';
+  ctx.shadowBlur=15;
+  ctx.fillStyle='#fff';
+  ctx.font="bold 50px 'Baloo 2',cursive";
+  ctx.textBaseline='middle';
+  ctx.fillText('Mumbaiyaaa', W/2, H*0.44);
+
+  // Tagline in Hindi feel
+  ctx.shadowBlur=0;
+  ctx.font="16px 'Baloo 2',cursive";
+  ctx.fillStyle='rgba(255,255,180,0.85)';
+  ctx.fillText('not a race.  just our beloved bombay.', W/2, H*0.51);
+
+  // Best score pill
+  const best=SAVE.best||0;
+  if(best>0){
+    drawPill(W/2, H*0.575, '🏆 Best: '+best+'m', 'rgba(0,0,0,0.4)', COL.gold);
+  }
+
+  // XP level
+  const lvl=getLvl(SAVE.xp||0);
+  drawPill(W/2, H*0.625, LEVELS[lvl].name+'  •  '+(SAVE.xp||0)+' XP', 'rgba(0,0,0,0.35)', '#aff');
+
+  // PLAY button
+  drawBtn(W/2, H*0.70, 220, 56, 'CHAL NIKAL! 🚀', '#1a0010', COL.gold, '#b89900');
+
+  // Upgrade button
+  drawBtn(W/2, H*0.79, 180, 42, '🎯 Driver Skills', 'rgba(0,0,0,0.5)', '#aaffaa', '#446644');
+
+  // Controls hint
+  ctx.font="11px 'Baloo 2',cursive";
+  ctx.fillStyle='rgba(255,255,255,0.4)';
+  ctx.textAlign='center';
+  ctx.fillText('Tap to steer  •  Top = 📯 horn  •  Collect ⛽ coins', W/2, H*0.89);
+}
+
+// ═══════════════ ROUTE ═══════════════════════════
+function drawRoute(){
+  // Dark bg with Mumbai skyline vibe
+  ctx.fillStyle='#0d0010'; ctx.fillRect(0,0,W,H);
+
+  // Subtle pattern
+  ctx.strokeStyle='rgba(255,180,0,0.04)';
+  ctx.lineWidth=1;
+  for(let x=0;x<W;x+=20){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+
+  // Header
+  ctx.fillStyle=COL.gold;
+  ctx.font="bold 22px 'Baloo 2',cursive";
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('🗺️  ROUTE CHUNO', W/2, H*0.07);
+
+  ctx.fillStyle='rgba(255,255,255,0.3)';
+  ctx.font="11px 'Baloo 2',cursive";
+  ctx.fillText('Choose your route and survive accordingly', W/2, H*0.12);
+
+  // Diff tabs
+  const tabs=['😌 Easy','😤 Medium','😰 Hard','💥 CHAOS!'];
+  const tc=[COL.green,COL.saffron,COL.red,COL.gold];
+  const tw2=W/4;
+  tabs.forEach((t,i)=>{
+    const tx=i*tw2,ty=H*0.16,th=H*0.085;
+    ctx.fillStyle=selDiff===i?tc[i]:'rgba(255,255,255,0.06)';
+    ctx.beginPath();
+    ctx.roundRect?ctx.roundRect(tx+3,ty,tw2-6,th,8):ctx.rect(tx+3,ty,tw2-6,th);
+    ctx.fill();
+    ctx.strokeStyle=tc[i];
+    ctx.lineWidth=selDiff===i?2:0.5; ctx.stroke();
+    ctx.fillStyle=selDiff===i?'#000':tc[i];
+    ctx.font=`bold ${W<380?9:10}px 'Baloo 2',cursive`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(t,tx+tw2/2,ty+th/2);
+  });
+
+  // Route cards
+  const filtered=ROUTES.filter(r=>r.diff===selDiff);
+  const cardH=78,cardGap=8,listTop=H*0.28;
+  ctx.save();
+  ctx.beginPath(); ctx.rect(0,listTop-4,W,H*0.56); ctx.clip();
+
+  filtered.forEach((r,i)=>{
+    const cy=listTop+i*(cardH+cardGap)-routeScroll;
+    if(cy>H||cy+cardH<listTop-4) return;
+    const sel=r===selRoute;
+
+    ctx.fillStyle=sel?`${r.color}22`:'rgba(255,255,255,0.04)';
+    ctx.strokeStyle=sel?r.color:'rgba(255,255,255,0.1)';
+    ctx.lineWidth=sel?2:1;
+    ctx.beginPath();
+    ctx.roundRect?ctx.roundRect(12,cy,W-24,cardH,12):ctx.rect(12,cy,W-24,cardH);
+    ctx.fill(); ctx.stroke();
+
+    // Left accent stripe
+    if(sel){
+      ctx.fillStyle=r.color;
+      ctx.beginPath();
+      ctx.roundRect?ctx.roundRect(12,cy,4,cardH,12):ctx.rect(12,cy,4,cardH);
+      ctx.fill();
+    }
+
+    // Icon
+    ctx.font='30px serif'; ctx.textAlign='left'; ctx.textBaseline='middle';
+    ctx.fillText(r.icon, 28,cy+cardH/2);
+
+    // Name
+    ctx.fillStyle=sel?'#fff':'rgba(255,255,255,0.8)';
+    ctx.font=`bold 14px 'Baloo 2',cursive`;
+    ctx.textAlign='left';
+    ctx.fillText(r.name, 66,cy+cardH/2-9);
+
+    // Zone
+    ctx.fillStyle=r.color;
+    ctx.font=`11px 'Baloo 2',cursive`;
+    ctx.fillText(r.zone, 66,cy+cardH/2+9);
+
+    // Chaos badge
+    ctx.fillStyle='rgba(255,100,0,0.8)';
+    ctx.font=`bold 10px 'Baloo 2',cursive`;
+    ctx.textAlign='right';
+    ctx.fillText('🔥 '+r.chaos0, W-24,cy+cardH/2);
+  });
+  ctx.restore();
+
+  // Start button
+  drawBtn(W/2, H*0.895, 230, 52, 'NIKAL! 🛺 '+selRoute.icon, '#1a0010', COL.gold, '#b89900');
+
+  // Back hint
+  ctx.fillStyle='rgba(255,255,255,0.25)';
+  ctx.font="10px 'Baloo 2',cursive"; ctx.textAlign='center';
+  ctx.fillText('← Swipe up/down to scroll routes', W/2, H*0.965);
+}
+
+// ═══════════════ PAUSE ═══════════════════════════
+function drawPause(){
+  ctx.fillStyle='rgba(0,0,0,0.82)';
+  ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='rgba(255,180,0,0.08)';
+  ctx.fillRect(0,0,W,H);
+
+  ctx.fillStyle=COL.gold;
+  ctx.font="bold 38px 'Baloo 2',cursive";
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('⏸ RUKA BHAI!', W/2, H*0.28);
+
+  ctx.fillStyle='rgba(255,255,255,0.4)';
+  ctx.font="13px 'Baloo 2',cursive";
+  ctx.fillText(selRoute.icon+' '+selRoute.name, W/2, H*0.36);
+
+  // Stats
+  ctx.font="12px 'Baloo 2',cursive";
+  ctx.fillText('📍 '+((G.dist)|0)+'m  •  🪙 '+G.coins+'  •  ⛽ '+(G.fuel|0)+'%', W/2, H*0.415);
+
+  drawBtn(W/2, H*0.495, 210, 50, 'PHIR CHAL! 🛺', COL.saffron,'#fff','#b84d00');
+  drawBtn(W/2, H*0.600, 210, 44, 'Route Badlo',   '#1a1a1a',COL.gold,'#b89900');
+  drawBtn(W/2, H*0.693, 210, 44, '🎯 Skills',     '#0a1a0a','#aaffaa','#446644');
+  drawBtn(W/2, H*0.785, 210, 44, 'Quit to Menu',  COL.red,'#fff','#a00015');
+}
+
+// ═══════════════ GAME OVER ═══════════════════════
+function drawOver(){
+  drawGame();
+  ctx.fillStyle='rgba(0,0,0,0.82)'; ctx.fillRect(0,0,W,H);
+
+  ctx.font='72px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('💥', W/2, H*0.15);
+
+  ctx.fillStyle=COL.red;
+  ctx.font="bold 28px 'Baloo 2',cursive";
+  ctx.fillText('GAME OVER BHAI!', W/2, H*0.27);
+
+  ctx.fillStyle='rgba(255,255,255,0.55)';
+  ctx.font="13px 'Baloo 2',cursive";
+  ctx.fillText(G.overReason, W/2, H*0.34);
+
+  // Stats card
+  const bx=W*0.08,by=H*0.39,bw=W*0.84,bh=190;
+  ctx.fillStyle='rgba(255,255,255,0.04)';
+  ctx.strokeStyle='rgba(255,200,0,0.15)';
+  ctx.lineWidth=1.5;
+  ctx.beginPath();
+  ctx.roundRect?ctx.roundRect(bx,by,bw,bh,14):ctx.rect(bx,by,bw,bh);
+  ctx.fill(); ctx.stroke();
+
+  const rows=[
+    ['📍 Distance',(G.dist|0)+'m'],
+    ['🪙 Coins',   G.coins+''],
+    ['🏆 Best',    (SAVE.best||0)+'m'],
+    ['⭐ XP Earned','+'+G.xpEarned],
+    ['⏱️ Time',   (((Date.now()-(G.frame*16.67))/1000)|0)+'s'],
+  ];
+
+  ctx.textBaseline='middle';
+  rows.forEach((r,i)=>{
+    const ry=by+24+i*35;
+    ctx.fillStyle='rgba(255,255,255,0.4)'; ctx.textAlign='left';
+    ctx.font="12px 'Baloo 2',cursive"; ctx.fillText(r[0], bx+16,ry);
+    ctx.fillStyle=COL.gold; ctx.textAlign='right';
+    ctx.font="bold 17px 'Baloo 2',cursive"; ctx.fillText(r[1], bx+bw-16,ry);
+  });
+
+  drawBtn(W/2, H*0.785, 220, 52, 'PHIR SE! 🛺',  COL.saffron,'#fff','#b84d00');
+  drawBtn(W/2, H*0.882, 220, 44, 'Route Badlo',   '#1a1a1a',COL.gold,'#b89900');
+}
+
+// ═══════════════ UPGRADE / SKILLS ════════════════
+function drawUpgrade(){
+  ctx.fillStyle='#07030f'; ctx.fillRect(0,0,W,H);
+
+  // Pattern
+  for(let x=0;x<W;x+=30){
+    ctx.strokeStyle='rgba(255,180,0,0.03)';
+    ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke();
+  }
+
+  // Back btn
+  ctx.fillStyle=COL.gold;
+  ctx.font="bold 14px 'Baloo 2',cursive";
+  ctx.textAlign='left'; ctx.textBaseline='middle';
+  ctx.fillText('← Back', 16, H*0.065);
+
+  // Title
+  ctx.textAlign='center';
+  ctx.font="bold 22px 'Baloo 2',cursive";
+  ctx.fillText('🎯 Driver Instincts', W/2, H*0.065);
+
+  // XP / Level status
+  const lvl=getLvl(SAVE.xp||0);
+  const xp=SAVE.xp||0;
+  const nextXp=LEVELS[Math.min(lvl+1,LEVELS.length-1)].xp;
+  const pct=lvl<LEVELS.length-1?Math.min(100,(xp-LEVELS[lvl].xp)/(nextXp-LEVELS[lvl].xp)*100):100;
+
+  ctx.fillStyle='rgba(255,255,255,0.07)';
+  ctx.beginPath();
+  ctx.roundRect?ctx.roundRect(14,H*0.10,W-28,72,10):ctx.rect(14,H*0.10,W-28,72);
+  ctx.fill();
+
+  ctx.fillStyle=COL.gold;
+  ctx.font="bold 16px 'Baloo 2',cursive";
+  ctx.textAlign='left'; ctx.textBaseline='middle';
+  ctx.fillText(LEVELS[lvl].name, 24,H*0.118);
+
+  ctx.fillStyle='rgba(255,255,255,0.4)';
+  ctx.font="11px 'Baloo 2',cursive";
+  ctx.fillText(xp+' XP  /  Total '+SAVE.runs+' runs', 24,H*0.137);
+
+  // XP bar
+  const xbw=W-36,xbh=7,xbx=18,xby=H*0.152;
+  ctx.fillStyle='rgba(255,255,255,0.1)';
+  ctx.beginPath(); ctx.roundRect?ctx.roundRect(xbx,xby,xbw,xbh,3):ctx.rect(xbx,xby,xbw,xbh); ctx.fill();
+  const xbg=ctx.createLinearGradient(xbx,0,xbx+xbw,0);
+  xbg.addColorStop(0,COL.saffron); xbg.addColorStop(1,COL.gold);
+  ctx.fillStyle=xbg;
+  ctx.beginPath(); ctx.roundRect?ctx.roundRect(xbx,xby,xbw*pct/100,xbh,3):ctx.rect(xbx,xby,xbw*pct/100,xbh); ctx.fill();
+
+  ctx.fillStyle='rgba(255,255,255,0.3)';
+  ctx.font="9px 'Baloo 2',cursive"; ctx.textAlign='right';
+  ctx.fillText('Next: '+nextXp+' XP', W-18,H*0.172);
+
+  // Skills list
+  const skillY0=H*0.26;
+  SKILLS.forEach((sk,i)=>{
+    const by=skillY0+i*82;
+    const owned=SAVE.skills?.[sk.id];
+    const canBuy=(xp>=sk.unlockXp)&&!owned;
+
+    ctx.fillStyle=owned?'rgba(100,255,100,0.08)':'rgba(255,255,255,0.04)';
+    ctx.strokeStyle=owned?'rgba(100,255,100,0.3)':canBuy?'rgba(255,180,0,0.3)':'rgba(255,255,255,0.08)';
+    ctx.lineWidth=1.5;
+    ctx.beginPath();
+    ctx.roundRect?ctx.roundRect(14,by,W-28,72,10):ctx.rect(14,by,W-28,72);
+    ctx.fill(); ctx.stroke();
+
+    // Icon
+    ctx.font='26px serif'; ctx.textAlign='left'; ctx.textBaseline='middle';
+    ctx.fillText(sk.icon,26,by+36);
+
+    // Name & desc
+    ctx.fillStyle=owned?'#aaffaa':canBuy?COL.gold:'rgba(255,255,255,0.5)';
+    ctx.font=`bold 13px 'Baloo 2',cursive`;
+    ctx.textAlign='left';
+    ctx.fillText(sk.name,62,by+22);
+
+    ctx.fillStyle='rgba(255,255,255,0.35)';
+    ctx.font=`10px 'Baloo 2',cursive`;
+    ctx.fillText(sk.desc,62,by+40);
+
+    // XP requirement
+    ctx.fillStyle='rgba(255,200,100,0.5)';
+    ctx.font=`9px 'Baloo 2',cursive`;
+    ctx.fillText(sk.unlockXp===0?'Default':'Req: '+sk.unlockXp+' XP',62,by+57);
+
+    // Button
+    const btnW=74,btnH=30,btnX=W-14-btnW,btnY=by+21;
+    if(owned){
+      ctx.fillStyle='rgba(100,255,100,0.2)';
+      ctx.strokeStyle='rgba(100,255,100,0.5)';
+    } else if(canBuy){
+      ctx.fillStyle='rgba(255,180,0,0.2)';
+      ctx.strokeStyle='rgba(255,180,0,0.6)';
+    } else {
+      ctx.fillStyle='rgba(255,255,255,0.05)';
+      ctx.strokeStyle='rgba(255,255,255,0.15)';
+    }
+    ctx.lineWidth=1.5;
+    ctx.beginPath();
+    ctx.roundRect?ctx.roundRect(btnX,btnY,btnW,btnH,8):ctx.rect(btnX,btnY,btnW,btnH);
+    ctx.fill(); ctx.stroke();
+
+    ctx.fillStyle=owned?'#aaffaa':canBuy?COL.gold:'rgba(255,255,255,0.3)';
+    ctx.font=`bold 10px 'Baloo 2',cursive`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(owned?'✅ Active':canBuy?'UNLOCK':'Locked',btnX+btnW/2,btnY+btnH/2);
+  });
+}
+
+// ── HELPERS ──────────────────────────────────────
+function drawBtn(cx,cy,bw,bh,label,bg,fg,shadow){
+  const bx=cx-bw/2, by=cy-bh/2;
+  ctx.fillStyle=shadow||'#000';
+  ctx.beginPath();
+  ctx.roundRect?ctx.roundRect(bx+2,by+5,bw,bh,bh/2):ctx.rect(bx+2,by+5,bw,bh);
+  ctx.fill();
+  ctx.fillStyle=bg;
+  ctx.beginPath();
+  ctx.roundRect?ctx.roundRect(bx,by,bw,bh,bh/2):ctx.rect(bx,by,bw,bh);
+  ctx.fill();
+  ctx.fillStyle=fg;
+  ctx.font=`bold 15px 'Baloo 2',cursive`;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(label,cx,cy);
+}
+
+function drawPill(cx,cy,label,bg,fg){
+  ctx.font=`12px 'Baloo 2',cursive`;
+  ctx.textBaseline='middle'; ctx.textAlign='center';
+  const tw=ctx.measureText(label).width;
+  const bw=tw+24,bh=22;
+  ctx.fillStyle=bg;
+  ctx.beginPath();
+  ctx.roundRect?ctx.roundRect(cx-bw/2,cy-bh/2,bw,bh,11):ctx.rect(cx-bw/2,cy-bh/2,bw,bh);
+  ctx.fill();
+  ctx.fillStyle=fg;
+  ctx.fillText(label,cx,cy);
+}
+
+// ── MAIN LOOP ─────────────────────────────────────
+function loop(){
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+loop();
+
+// ── INITIAL TOAST ─────────────────────────────────
+setTimeout(()=>{
+  showToast('🛺 Welcome to Mumbaiyaaa!');
+  setTimeout(()=>showToast('Tap CHAL NIKAL to begin your journey'),2500);
+},600);
+
+</script>
+</body>
+</html>
